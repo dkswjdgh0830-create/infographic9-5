@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>식료품 물가와 복권 영수증</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic+Coding:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#e6e3dc; --paper:#fdfcf8; --ink:#22211f; --ink-2:#6e6a62; --ink-3:#b3afa5; --print:#aaa69d;
+    --red:#c4233a; --tk:#fff1f3; --tk-edge:#e49aab; --tk-band:#e2577a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{background:var(--bg)}
+  body{background:var(--bg);color:var(--ink);font:14px/1.75 "Nanum Gothic Coding",ui-monospace,Menlo,Consolas,monospace;-webkit-font-smoothing:antialiased}
+  .red{color:var(--red)}
+  b{font-weight:700}
+
+  .intro,.outro{max-width:560px;margin:0 auto;padding:22vh 20px 10vh}
+  .intro p,.outro p{margin-bottom:14px;word-break:keep-all}
+  .intro .lead{font-size:20px;line-height:1.6;font-weight:700}
+  .muted{color:var(--ink-2);font-size:12px}
+  .down{margin-top:40px;color:var(--ink-2);font-size:12px;letter-spacing:.08em}
+
+  /* 스크롤리텔링: 왼쪽 글 카드, 오른쪽 고정 무대 */
+  .scrolly{display:grid;grid-template-columns:minmax(300px,400px) 1fr;position:relative}
+  .steps{position:relative;z-index:4;padding:0 0 40vh 24px;grid-column:1;grid-row:1}
+  .step{min-height:100vh;display:flex;align-items:center}
+  .step.tall{min-height:340vh;align-items:flex-start}
+  .step.tall .card{position:sticky;top:34vh;margin-top:34vh}
+  .card{background:#fff;color:var(--ink);padding:20px 20px 22px;max-width:360px;font-size:13px;line-height:1.75;word-break:keep-all;border:1px solid #d6d2c8;box-shadow:0 10px 30px rgba(60,50,30,.12)}
+  .card p+p{margin-top:10px}
+  .card .k{display:inline-block;font-weight:700;border-bottom:2px solid var(--ink)}
+  .card .k.red{border-color:var(--red)}
+  .card ul{margin-top:10px;font-size:12px}
+  .card li{list-style:none;padding-left:12px;text-indent:-12px;margin-bottom:4px}
+  .card li::before{content:"* "}
+  .card .r{display:flex;justify-content:space-between;font-size:14px;border-top:1px dashed var(--ink-3);padding-top:6px;margin-top:8px}
+  .card .msg{font-size:15px;font-weight:700;line-height:1.65;border-top:3px double var(--ink);padding-top:10px;margin-top:12px}
+  .sorter{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .sorter button{font:inherit;font-size:12px;background:none;border:1px solid var(--ink);color:var(--ink);padding:3px 8px;cursor:pointer}
+  .sorter button[aria-pressed="true"]{background:var(--ink);color:#fff}
+  .sorter button:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+  .stage{position:sticky;top:0;height:100vh;grid-column:2;grid-row:1;overflow:hidden}
+  .slot{position:absolute;left:16px;right:16px;height:12px;background:linear-gradient(#4a4844,#2c2b29);border-radius:3px;box-shadow:0 3px 6px rgba(0,0,0,.25);z-index:3}
+  .counter{position:absolute;left:24px;top:18px;z-index:3;transition:opacity .4s}
+  .counter .y{font-size:30px;font-weight:700;line-height:1.2}
+  .counter .v{font-size:12px;color:var(--ink-2)}
+  .counter .v b{color:var(--ink)}
+
+  /* 무대 위 요소는 모두 절대 위치, 위치·길이는 JS가 px로 지정 */
+  .el{position:absolute;top:0;left:0;transition:left .8s cubic-bezier(.2,.7,.2,1),top .8s,width .8s,height .7s cubic-bezier(.3,.6,.2,1),opacity .5s}
+  .hide{opacity:0!important;pointer-events:none}
+
+  /* 영수증: 1줄 높이 = CPI 1. 줄마다 품목(왼쪽)·금액(오른쪽) 인쇄 자국 */
+  .rc{background-color:var(--paper);filter:drop-shadow(0 3px 5px rgba(60,50,30,.18));
+    --line:repeating-linear-gradient(to bottom,transparent 0 calc(var(--u)*.3),var(--print) 0 calc(var(--u)*.72),transparent 0 var(--u));
+    background-image:var(--line),var(--line),repeating-linear-gradient(to bottom,transparent 0 calc(var(--u)*.3),var(--print) 0 calc(var(--u)*.72),transparent 0 calc(var(--u)*5));
+    background-size:42% 100%,20% 100%,58% 100%;background-position:9% 0,91% 0,9% 0;background-repeat:no-repeat}
+  .rc::after,.tk::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:6px;
+    -webkit-mask:conic-gradient(from 135deg at top,#000 90deg,#0000 0) 0 0/8px 100%;mask:conic-gradient(from 135deg at top,#000 90deg,#0000 0) 0 0/8px 100%}
+  .rc::after{background:var(--paper)}
+  .rh,.rf{position:absolute;left:0;right:0;background:var(--paper);padding:8px 9px;font-size:10.5px;line-height:1.5;color:var(--ink);text-align:center;white-space:nowrap;overflow:hidden}
+  .slim .rh .dt,.slim .rh .row{display:none}
+  .slim .rf .tot{font-size:11px}
+  .rh{top:0;border-bottom:1px dashed var(--ink-3)}
+  .rh b{font-size:12px;display:block}
+  .rh .row,.rf .row{display:flex;justify-content:space-between;text-align:left}
+  .rf{bottom:0;border-top:1px dashed var(--ink-3);padding-bottom:6px}
+  .rf .tot{font-size:13px;font-weight:700}
+  .bc{height:22px;margin-top:5px;background:repeating-linear-gradient(90deg,var(--ink) 0 2px,transparent 0 3px,var(--ink) 0 4px,transparent 0 6px,var(--ink) 0 9px,transparent 0 10px,var(--ink) 0 11px,transparent 0 14px)}
+  .mini .rh,.mini .rf{display:none}
+
+  /* 복권: 1장 = 5,000억 원. 장마다 왼쪽 띠, 번호 공 6개, 아래 절취선 */
+  .tk{background-color:var(--tk);border:1px solid var(--tk-edge);border-top:0;
+    --ball:calc(var(--bs)/2);
+    background-image:
+      radial-gradient(circle at 50% 100%,var(--tk-edge) 1.2px,transparent 1.8px),
+      radial-gradient(circle var(--ball) at 50% 50%,#f2b705 96%,transparent),
+      radial-gradient(circle var(--ball) at 50% 50%,#4aa8de 96%,transparent),
+      radial-gradient(circle var(--ball) at 50% 50%,#e8505b 96%,transparent),
+      radial-gradient(circle var(--ball) at 50% 50%,#9a9a9a 96%,transparent),
+      radial-gradient(circle var(--ball) at 50% 50%,#8cc63f 96%,transparent),
+      radial-gradient(circle var(--ball) at 50% 50%,#e8505b 96%,transparent),
+      linear-gradient(90deg,var(--tk-band) 0 12%,transparent 0);
+    background-size:5px var(--t),var(--bs) var(--t),var(--bs) var(--t),var(--bs) var(--t),var(--bs) var(--t),var(--bs) var(--t),var(--bs) var(--t),100% 100%;
+    background-position:0 0,24% 0,38% 0,52% 0,66% 0,80% 0,94% 0,0 0;
+    background-repeat:repeat,repeat-y,repeat-y,repeat-y,repeat-y,repeat-y,repeat-y,no-repeat}
+  .tk::after{background:var(--tk)}
+  .ghost{border:2px dashed var(--ink);background:none;z-index:2}
+  .ghost.t{border-color:var(--red)}
+  .ghost span{position:absolute;bottom:-9px;font-size:11px;color:var(--ink);white-space:nowrap}
+  .ghost:not(.t) span{right:calc(100% + 6px)}.ghost.t span{left:calc(100% + 6px);color:var(--red)}
+  .cap{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12px;line-height:1.45;text-align:center}
+  .cap .s{color:var(--ink-2);font-size:11px}
+  .dim{border-left:1px solid var(--ink);z-index:3}
+  .dim::before,.dim::after{content:"";position:absolute;left:-5px;width:9px;border-top:1px solid var(--ink)}
+  .dim::before{top:0}.dim::after{bottom:0}
+  .dim span{position:absolute;top:50%;transform:translateY(-50%);white-space:nowrap;font-size:13px;font-weight:700}
+  .dim.l span{right:10px}.dim.r span{left:10px;color:var(--red)}
+  .dim.r,.dim.r::before,.dim.r::after{border-color:var(--red)}
+  .yl{font-size:11px;color:var(--ink-2);text-align:center;white-space:nowrap;transform:translateX(-50%)}
+  .pl{font-size:10.5px;line-height:1.45;text-align:center;white-space:nowrap;transform:translateX(-50%)}
+  .grid{height:0;border-top:1px dashed #b9b5ab;z-index:0}
+  .grid span{position:absolute;left:0;top:-16px;font-size:10px;color:var(--ink-2)}
+  .legend{position:absolute;right:20px;top:20px;font-size:11px;color:var(--ink-2);text-align:right;line-height:1.8;z-index:3}
+  .legend i{display:inline-block;width:14px;height:10px;margin-right:6px;vertical-align:-1px}
+  .legend .lr{background:var(--paper);border:1px solid var(--ink-3)}
+  .legend .lt{background:linear-gradient(90deg,var(--tk-band) 0 25%,var(--tk) 0);border:1px solid var(--tk-edge)}
+
+  .outro table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+  .outro th,.outro td{padding:4px 6px;border-bottom:1px dashed var(--ink-3);text-align:right;font-variant-numeric:tabular-nums}
+  .outro th:first-child,.outro td:first-child{text-align:left}
+  .outro summary{cursor:pointer}
+  .outro details{overflow-x:auto}
+
+  @media (max-width:820px){
+    .scrolly{display:block}
+    .steps{margin-top:-100vh;padding:0 16px 40vh}
+    .step{align-items:flex-end;padding-bottom:5vh}
+    .step.tall .card{top:auto;bottom:5vh;margin-top:60vh}
+    .card{max-width:none;width:100%;font-size:12.5px;padding:14px 16px 16px}
+    .legend{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){.el{transition:none}}
+</style>
+</head>
+<body>
+
+<header class="intro">
+  <p class="lead">물가가 오르면 영수증이 길어집니다.<br>판매액이 늘면 복권이 더 쌓입니다.</p>
+  <p>대한민국 2016~2025년의 <b>식료품 소비자물가지수</b>는 영수증 길이로, <b class="red">연간 복권 판매액</b>은 복권 장수로 바꿨습니다. 10년 동안 둘은 함께 길어졌을까요? 그리고 같은 속도로 길어졌을까요?</p>
+  <p class="muted">국가 단위 통계를 길이로 환산한 그림입니다. 개인의 구매 내역이나 실제 결제 금액이 아니며, 지수와 금액은 단위가 달라 서로 더하지 않습니다.</p>
+  <p class="down">스크롤 ↓</p>
+</header>
+
+<div class="scrolly">
+  <div class="stage" id="stage" aria-hidden="true">
+    <div class="slot" id="slot"></div>
+    <div class="counter" id="counter"><div class="y" id="cy">2016</div><div class="v" id="cv"><div>&nbsp;</div><div>&nbsp;</div></div></div>
+    <div class="legend"><div><i class="lr"></i>영수증 1줄 = 식료품 CPI 1</div><div><i class="lt"></i>복권 1장 = 판매액 5,000억 원</div></div>
+  </div>
+
+  <div class="steps" id="steps">
+    <section class="step" data-s="0"><div class="card">
+      <p>이 영수증이 <span class="k">2016년 식료품 물가</span>입니다. 영수증 <b>1줄 = 식료품 소비자물가지수 1</b>(2020년 = 100). 2016년 지수는 90.073, 영수증은 90줄 남짓입니다.</p>
+      <p>옆의 복권 묶음은 같은 해 <span class="k red">전국 복권 판매액</span>입니다. 복권 <b>1장 = 판매액 5,000억 원</b>. 3조 8,855억 원이니 약 7.8장입니다.</p>
+    </div></section>
+
+    <section class="step tall" data-s="1"><div class="card">
+      <p>스크롤하면 한 해씩 넘어갑니다.</p>
+      <p>식료품 물가지수가 오르면 영수증이 길어지고, 복권 판매액이 늘면 복권이 더 붙습니다. 점선은 2016년의 길이입니다.</p>
+    </div></section>
+
+    <section class="step" data-s="2"><div class="card">
+      <p>2016년(점선)과 2025년을 겹쳐 봅니다.</p>
+      <p>영수증은 90줄에서 127줄로 <span class="k">40.8%</span> 길어졌고, 복권은 7.8장에서 15.3장으로 <span class="k red">97.1%</span>, 거의 두 배가 되었습니다.</p>
+    </div></section>
+
+    <section class="step" data-s="3"><div class="card">
+      <p>열 해를 나란히 걸었습니다.</p>
+      <p>영수증도 복권도 오른쪽으로 갈수록 길어집니다. 이렇게만 보면 두 지표는 함께 움직이는 것처럼 보입니다.</p>
+    </div></section>
+
+    <section class="step" data-s="4"><div class="card">
+      <p>정말 함께 움직였을까요? 해마다 <b>새로 덧붙은 부분</b>만 잘라 봅니다.</p>
+      <p>전년 길이를 같은 기준으로 맞추면 조각 길이 = <b>전년 대비 상승률(%)</b>이 되어, 단위가 다른 두 지표를 같은 눈금에 놓을 수 있습니다. 2016년은 전년 자료가 없어 빠집니다.</p>
+    </div></section>
+
+    <section class="step" data-s="5"><div class="card">
+      <p>이번엔 조각을 <b>영수증 조각이 긴 순서</b>(식료품 상승률 순)로 다시 걸었습니다. 영수증 조각은 계단처럼 짧아지는데, 복권 조각은 들쭉날쭉합니다.</p>
+      <ul>
+        <li>식료품이 가장 적게 오른 2019년(+0.05%), 복권은 9.32%로 세 번째로 많이 늘었습니다.</li>
+        <li>복권이 가장 많이 늘어난 2020년(+12.97%), 식료품은 4.43%로 네 번째였습니다.</li>
+        <li>식료품이 가장 많이 오른 2022년(+5.91%), 복권은 7.60%로 다섯 번째였습니다.</li>
+      </ul>
+      <div class="sorter" role="group" aria-label="조각 정렬 기준">
+        <button type="button" data-k="year" aria-pressed="false">연도순</button>
+        <button type="button" data-k="a" aria-pressed="true">영수증 조각순</button>
+        <button type="button" data-k="b" aria-pressed="false">복권 조각순</button>
+      </div>
+    </div></section>
+
+    <section class="step" data-s="6"><div class="card">
+      <div class="r"><span>길이끼리 상관계수</span><b id="r1"></b></div>
+      <div class="r"><span>조각끼리 상관계수</span><b id="r2"></b></div>
+      <p class="msg">2016~2025년, 식료품 물가와 복권 판매액은 함께 상승했지만 연간 상승률 사이에는 뚜렷한 관계가 없었다.</p>
+      <p style="font-size:12px">식료품 물가가 많이 오른 해에 복권 판매액도 그만큼 크게 늘었다고 보기는 어렵습니다. 이 그림은 복권 판매 증가가 물가 상승 때문이라고 말하지 않습니다.</p>
+    </div></section>
+  </div>
+</div>
+
+<footer class="outro">
+  <p class="muted">피어슨 상관계수 · 길이끼리 10개 연도, 조각끼리 9개 연도. 표본이 작아 해석에 주의가 필요합니다.<br>자료: 6_food_cpi_x_lottery_sales_2016_2025.csv — 식품 소비자물가지수(01 식료품 및 비주류음료, 2020=100), 복권 판매액(원)</p>
+  <details>
+    <summary>원자료 표 보기</summary>
+    <table id="tbl"><thead><tr><th>연도</th><th>식료품 CPI</th><th>전년 대비</th><th>복권 판매액(억 원)</th><th>전년 대비</th></tr></thead><tbody></tbody></table>
+  </details>
+</footer>
+
+<script>
+// 원자료 그대로(CPI는 원본 표기 문자열 유지, 복권은 원 단위)
+const RAW = [
+  [2016,"90.073",3885500000000],[2017,"93.134",4153800000000],[2018,"95.717",4384800000000],
+  [2019,"95.762",4793300000000],[2020,"100.0",5415200000000],[2021,"105.89",5975300000000],
+  [2022,"112.15",6429200000000],[2023,"118.29",6751700000000],[2024,"122.87",7330000000000],
+  [2025,"126.86",7658900000000]
+];
+const TICKET = 5e11; // 복권 1장 = 5,000억 원
+const D = RAW.map(([y,a,b]) => ({y, aStr:a, a:+a, b, tickets:b/TICKET}));
+D.forEach((d,i) => { if (i) { const p = D[i-1]; d.ga = (d.a-p.a)/p.a*100; d.gb = (d.b-p.b)/p.b*100; } });
+const R = D.slice(1);
+
+function pearson(x, y){
+  const n = x.length, mx = x.reduce((s,v)=>s+v,0)/n, my = y.reduce((s,v)=>s+v,0)/n;
+  let sxy=0, sxx=0, syy=0;
+  for (let i=0;i<n;i++){ const dx=x[i]-mx, dy=y[i]-my; sxy+=dx*dy; sxx+=dx*dx; syy+=dy*dy; }
+  return sxy/Math.sqrt(sxx*syy);
+}
+const r1 = pearson(D.map(d=>d.a), D.map(d=>d.b)), r2 = pearson(R.map(d=>d.ga), R.map(d=>d.gb));
+console.assert(Math.abs(r1-0.986)<0.001 && Math.abs(r2-0.055)<0.001, 'r 값이 기획안과 다름', r1, r2);
+console.assert(D[0].tickets.toFixed(1)==='7.8' && D[9].tickets.toFixed(1)==='15.3', '카드 문구의 장수와 불일치');
+const fr = r => 'r = ' + (r>=0?'+':'') + r.toFixed(3);
+document.getElementById('r1').textContent = fr(r1);
+document.getElementById('r2').textContent = fr(r2);
+
+const pct = v => (v>=0?'+':'') + v.toFixed(2) + '%';
+const joEok = n => { const e = Math.round(n/1e8), jo = Math.floor(e/1e4), r = e%1e4; return `${jo}조 ${r.toLocaleString('ko-KR')}억 원`; };
+document.querySelector('#tbl tbody').innerHTML = D.map(d => `<tr><td>${d.y}</td><td>${d.aStr}</td><td>${d.ga==null?'—':pct(d.ga)}</td><td>${Math.round(d.b/1e8).toLocaleString('ko-KR')}</td><td>${d.gb==null?'—':pct(d.gb)}</td></tr>`).join('');
+
+// ---- 무대 요소 만들기 ----
+const stage = document.getElementById('stage');
+const mk = (cls, html='') => { const e = document.createElement('div'); e.className = 'el ' + cls; e.innerHTML = html; stage.appendChild(e); return e; };
+const grids = [5,10].map(t => mk('grid hide', `<span>${t}%</span>`));
+const live = {
+  rc: mk('rc', '<div class="rh"></div><div class="rf"></div><div class="cap"></div>'),
+  tk: mk('tk', '<div class="cap"></div>')
+};
+const ghost = { rc: mk('ghost hide', '<span>2016</span>'), tk: mk('ghost t hide', '<span>2016</span>') };
+const dims = { rc: mk('dim l hide', '<span>+40.8%</span>'), tk: mk('dim r hide', '<span>+97.1%</span>') };
+const row = D.map(d => ({ rc: mk('rc mini hide'), tk: mk('tk hide'), yl: mk('yl hide', d.y) }));
+const pcs = R.map(d => ({ d, rc: mk('rc mini hide'), tk: mk('tk hide'), yl: mk('yl hide', d.y),
+  pl: mk('pl hide', `${pct(d.ga)}<br><span class="red">${pct(d.gb)}</span>`) }));
+const counter = document.getElementById('counter'), cy = document.getElementById('cy'), cv = document.getElementById('cv');
+
+const set = (e, o) => { for (const k in o) e.style[k] = typeof o[k] === 'number' ? o[k] + 'px' : o[k]; };
+const show = (e, on) => e.classList.toggle('hide', !on);
+let uT = 0;
+const ticket = (e, w) => e.style.setProperty('--bs', Math.max(3, Math.min(uT * .42, w / 8.5)) + 'px');
+
+let step = 0, yearIdx = 0, sortKey = 'a';
+
+function layout(){
+  const W = stage.clientWidth, H = stage.clientHeight, narrow = W < 560;
+  const TOP = Math.max(narrow ? 92 : 100, counter.offsetTop + counter.offsetHeight + 24); // 연도 표시 아래에서 출력 시작
+  const HS = H - TOP - (narrow ? 230 : 90);         // 종이가 늘어질 수 있는 최대 길이
+  const uR = HS / 130;                              // 영수증 1줄(CPI 1)의 px
+  uT = HS / 16;                                     // 복권 1장(5,000억 원)의 px
+  stage.style.setProperty('--u', uR + 'px');
+  stage.style.setProperty('--t', uT + 'px');
+  set(document.getElementById('slot'), {top: TOP - 12});
+
+  // 한 쌍 보기(0~2단계)
+  const single = step <= 2;
+  // 좁은 화면에선 왼쪽 치수 라벨 자리를 위해 한 쌍을 살짝 오른쪽으로
+  const rw = Math.min(132, W * .3), tw = Math.min(104, W * (narrow ? .2 : .24)), cx = W / 2 + (narrow ? 18 : 0);
+  const d = D[step === 2 ? 9 : step === 0 ? 0 : yearIdx];
+  set(live.rc, {left: cx - rw - 14, top: TOP, width: rw, height: d.a * uR});
+  set(live.tk, {left: cx + 14, top: TOP, width: tw, height: d.tickets * uT});
+  ticket(live.tk, tw);
+  const [rh, rf, rcap] = live.rc.children;
+  live.rc.classList.toggle('slim', rw < 120);
+  rh.innerHTML = `<b>식료품 물가</b><div class="dt">${d.y}.01–${d.y}.12</div><div class="row"><span>품목</span><span>지수</span></div>`;
+  rf.innerHTML = `<div class="row tot"><span>CPI</span><span>${d.aStr}</span></div><div class="bc"></div>`;
+  rcap.innerHTML = `${Math.round(d.a)}줄<br><span class="s">2020 = 100</span>`;
+  live.tk.firstChild.innerHTML = `<b class="red">${d.tickets.toFixed(1)}장</b><br><span class="s">${joEok(d.b)}</span>`;
+  show(live.rc, single); show(live.tk, single);
+  show(counter, single);
+  cy.textContent = d.y;
+  cv.innerHTML = `<div>식료품 CPI <b>${d.aStr}</b></div><div class="red">복권 판매액 ${joEok(d.b)}</div>`;
+
+  const g0 = D[0], showGhost = single && step >= 1 && d !== g0;
+  set(ghost.rc, {left: cx - rw - 14, top: TOP, width: rw, height: g0.a * uR});
+  set(ghost.tk, {left: cx + 14, top: TOP, width: tw, height: g0.tickets * uT});
+  show(ghost.rc, showGhost); show(ghost.tk, showGhost);
+  set(dims.rc, {left: cx - rw - 28, top: TOP + g0.a * uR, height: (D[9].a - g0.a) * uR});
+  set(dims.tk, {left: cx + 14 + tw + 14, top: TOP + g0.tickets * uT, height: (D[9].tickets - g0.tickets) * uT});
+  show(dims.rc, step === 2); show(dims.tk, step === 2);
+
+  // 열 해 나란히(3단계)
+  const pad = narrow ? 14 : 30, colW = (W - pad * 2) / 10;
+  const crw = colW * .42, ctw = colW * .36;
+  D.forEach((d, i) => {
+    const x = pad + colW * i + (colW - crw - ctw - 3) / 2;
+    set(row[i].rc, {left: x, top: TOP, width: crw, height: d.a * uR});
+    set(row[i].tk, {left: x + crw + 3, top: TOP, width: ctw, height: d.tickets * uT});
+    ticket(row[i].tk, ctw);
+    set(row[i].yl, {left: x + (crw + ctw + 3) / 2, top: TOP - 30});
+    row[i].rc.title = `${d.y} 식료품 CPI ${d.aStr}`; row[i].tk.title = `${d.y} 복권 ${joEok(d.b)}`;
+    [row[i].rc, row[i].tk, row[i].yl].forEach(e => show(e, step === 3));
+  });
+
+  // 덧붙은 조각(4~6단계): 두 지표 모두 % 단위, 같은 눈금
+  const piecesOn = step >= 4;
+  const pxPct = HS * .78 / 13;
+  const order = step === 4 ? R : [...R].sort({year:(x,y)=>x.y-y.y, a:(x,y)=>y.ga-x.ga, b:(x,y)=>y.gb-x.gb}[sortKey]);
+  const pW = (W - pad * 2) / 9, prw = pW * .36, ptw = pW * .36;
+  pcs.forEach(p => {
+    const i = order.indexOf(p.d), x = pad + pW * i + (pW - prw - ptw - 3) / 2, mid = x + (prw + ptw + 3) / 2;
+    set(p.rc, {left: x, top: TOP, width: prw, height: Math.max(p.d.ga, 0) * pxPct});
+    set(p.tk, {left: x + prw + 3, top: TOP, width: ptw, height: p.d.gb * pxPct});
+    ticket(p.tk, ptw);
+    set(p.yl, {left: mid, top: TOP - 30});
+    set(p.pl, {left: mid, top: TOP + 13.2 * pxPct + 12});
+    p.rc.title = `${p.d.y} 식료품 ${pct(p.d.ga)}`; p.tk.title = `${p.d.y} 복권 ${pct(p.d.gb)}`;
+    [p.rc, p.tk, p.yl, p.pl].forEach(e => show(e, piecesOn));
+  });
+  grids.forEach((g, i) => { set(g, {left: pad, width: W - pad * 2, top: TOP + (i + 1) * 5 * pxPct}); show(g, piecesOn); });
+}
+
+// ---- 스크롤: 화면 가운데에 걸친 단계가 현재 단계 ----
+const steps = [...document.querySelectorAll('.step')];
+function onScroll(){
+  const mid = innerHeight / 2;
+  let s = step, yi = yearIdx;
+  steps.forEach(el => {
+    const r = el.getBoundingClientRect();
+    if (r.top <= mid && r.bottom > mid){
+      s = +el.dataset.s;
+      if (s === 1) yi = Math.min(9, Math.max(0, Math.floor((mid - r.top) / (r.height - mid) * 10)));
+    }
+  });
+  if (s !== step || yi !== yearIdx){
+    if (s === 5 && step !== 5 && step !== 6) setSort('a', false);
+    step = s; yearIdx = yi; layout();
+  }
+}
+function setSort(k, redraw = true){
+  sortKey = k;
+  document.querySelectorAll('.sorter button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k));
+  if (redraw) layout();
+}
+document.querySelectorAll('.sorter button').forEach(b => b.addEventListener('click', () => setSort(b.dataset.k)));
+addEventListener('scroll', onScroll, {passive:true});
+addEventListener('resize', layout);
+layout(); onScroll();
+</script>
+</body>
+</html>
